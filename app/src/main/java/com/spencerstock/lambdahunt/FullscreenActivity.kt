@@ -1,6 +1,7 @@
 package com.spencerstock.lambdahunt
 
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.os.Handler
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +14,7 @@ import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.activity_fullscreen.*
+import java.util.*
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -20,9 +22,13 @@ import kotlinx.android.synthetic.main.activity_fullscreen.*
  */
 class FullscreenActivity : AppCompatActivity() {
 
-    internal lateinit var backendAPI: BackendAPI
-    internal lateinit var compositeDisposable: CompositeDisposable
+    private lateinit var backendAPI: BackendAPI
+    private lateinit var compositeDisposable: CompositeDisposable
     private lateinit var roomsDatabase: RoomsDatabase
+    private lateinit var roomsList: List<Room>
+    private var currentRoom: Room? = null
+    private lateinit var timer: Timer
+
     private val mHideHandler = Handler()
     private val mHidePart2Runnable = Runnable {
         // Delayed removal of status and navigation bar
@@ -64,9 +70,23 @@ class FullscreenActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         roomsDatabase = RoomsDatabase.getAppDatabase(this)
+
+        roomsList = roomsDatabase.roomsDao().getAllRooms()
         val retrofit = RetrofitClient.instance
         backendAPI = retrofit.create(BackendAPI::class.java)
         fetchData()
+        north.setOnClickListener {
+            move("n")
+        }
+        south.setOnClickListener {
+            move("s")
+        }
+        west.setOnClickListener {
+            move("w")
+        }
+        east.setOnClickListener {
+            move("e")
+        }
 
         mVisible = true
 
@@ -76,18 +96,18 @@ class FullscreenActivity : AppCompatActivity() {
         // Upon interacting with UI controls, delay any scheduled hide()
         // operations to prevent the jarring behavior of controls going away
         // while interacting with the UI.
-        dummy_button.setOnTouchListener(mDelayHideTouchListener)
+        north.setOnTouchListener(mDelayHideTouchListener)
 
 
 
     }
 
-    private fun move(s: String) {
+    private fun move(dir: String) {
         compositeDisposable = CompositeDisposable()
-        compositeDisposable.add(backendAPI.move(Direction(s))
+        compositeDisposable.add(backendAPI.move(Direction(dir))
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe{room: Room->handleData(room)}
+            .subscribe{room: Room->handleData(room, dir)}
         )
     }
 
@@ -101,9 +121,45 @@ class FullscreenActivity : AppCompatActivity() {
         )
     }
 
-    private fun handleData(room: Room) {
+    private fun handleData(room: Room, direction: String? = null) {
 
+        if (currentRoom != null) {
+            if (direction.equals("e")) {
+                currentRoom!!.e_to = room.room_id
+                room.w_to = currentRoom!!.room_id
+            }
+            else if (direction.equals("w")) {
+                currentRoom!!.w_to = room.room_id
+                room.e_to = currentRoom!!.room_id
+            }
+            else if (direction.equals("n")) {
+                currentRoom!!.n_to = room.room_id
+                room.s_to = currentRoom!!.room_id
+            }
+            else if (direction.equals("s")) {
+                currentRoom!!.s_to = room.room_id
+                room.n_to = currentRoom!!.room_id
+            }
+            roomsDatabase.roomsDao().insert(currentRoom!!)
+        }
+
+
+        currentRoom = room
         roomsDatabase.roomsDao().insert(room)
+        displayRoom(room)
+    }
+
+    private fun displayRoom(room: Room) {
+        room_name.text = room.title
+        room_desc.text = room.description
+        room_exits.text = room.exits.toString()
+
+        val timer = object: CountDownTimer(room.cooldown*1000.toLong(), 100) {
+            override fun onTick(millisUntilFinished: Long) {room_timer.text = (millisUntilFinished/100).toString()}
+
+            override fun onFinish() {room_timer.text = "Ready"}
+        }
+        timer.start()
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {

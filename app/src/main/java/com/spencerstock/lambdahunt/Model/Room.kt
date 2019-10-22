@@ -26,8 +26,14 @@ data class Room(
     @Ignore
     var errors : List<String>?,
     @Ignore
-    var messages : List<String>?
+    var messages : List<String>?,
+    var w_to: Int? = null,
+    var e_to: Int? = null,
+    var s_to: Int? = null,
+    var n_to: Int? = null
 )
 {
     constructor(room_id: Int) : this(room_id,"","","",0,"",null,null,null,0,null,null)
+
+
 }
