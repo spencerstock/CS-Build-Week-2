@@ -14,9 +14,7 @@ class ListConverter {
             return null
         }
         val gson = Gson()
-        val type = object : TypeToken<List<String>>() {
-
-        }.type
+        val type = object : TypeToken<List<String>>() {}.type
         return gson.toJson(someList, type)
     }
 
@@ -26,9 +24,7 @@ class ListConverter {
             return null
         }
         val gson = Gson()
-        val type = object : TypeToken<List<String>>() {
-
-        }.type
+        val type = object : TypeToken<List<String>>() {}.type
         return gson.fromJson(string, type)
     }
 

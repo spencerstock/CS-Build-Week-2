@@ -20,7 +20,7 @@ data class Room(
     var players : List<String>?,
     @Ignore
     var items : List<String>?,
-    @Ignore
+    @TypeConverters(ListConverter::class)
     var exits : List<String>?,
     var cooldown : Int,
     @Ignore
