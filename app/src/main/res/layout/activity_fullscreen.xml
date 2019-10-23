@@ -59,6 +59,30 @@
             android:text="Room Exits"
             android:textSize="15sp" />
 
+        <TextView
+            android:id="@+id/terrain"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Terrain"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/coordinates"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Coordinates"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:id="@+id/random_procs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            >
+        </LinearLayout>
+
 
     </LinearLayout>
 
@@ -110,6 +134,14 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="West" />
+
+            <Button
+                android:id="@+id/play"
+                style="?metaButtonBarButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Play" />
 
         </LinearLayout>
     </FrameLayout>

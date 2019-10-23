@@ -3,10 +3,14 @@ package com.spencerstock.lambdahunt
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
+import android.util.Log
 import android.view.View
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.spencerstock.lambdahunt.Model.Direction
 import com.spencerstock.lambdahunt.Model.Room
+import com.spencerstock.lambdahunt.Model.Treasure
 import com.spencerstock.lambdahunt.Model.WiseDirection
 import com.spencerstock.lambdahunt.Retrofit.BackendAPI
 import com.spencerstock.lambdahunt.Retrofit.RetrofitClient
@@ -16,7 +20,8 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.activity_fullscreen.*
 import java.lang.Exception
-import java.util.*
+import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
@@ -29,7 +34,8 @@ class FullscreenActivity : AppCompatActivity() {
     private lateinit var roomsDatabase: RoomsDatabase
     private lateinit var roomsList: MutableList<Room>
     private var currentRoom: Room? = null
-    private lateinit var timer: Timer
+    private lateinit var timer : CountDownTimer
+    private var autoMove : AtomicBoolean = AtomicBoolean(false)
 
     private val mHideHandler = Handler()
     private val mHidePart2Runnable = Runnable {
@@ -51,7 +57,7 @@ class FullscreenActivity : AppCompatActivity() {
         supportActionBar?.show()
         fullscreen_content_controls.visibility = View.VISIBLE
     }
-    private var mVisible: Boolean = false
+    private var mVisible: Boolean = true
     private val mHideRunnable = Runnable { hide() }
     /**
      * Touch listener to use for in-layout UI controls to delay hiding the
@@ -78,28 +84,23 @@ class FullscreenActivity : AppCompatActivity() {
         backendAPI = retrofit.create(BackendAPI::class.java)
         fetchData()
         north.setOnClickListener {
-            if (currentRoom?.n_to != null) {
-                wiseMove("n", currentRoom!!.n_to!!)
-            }
-            else move("n")
+            prepMove("n")
         }
         south.setOnClickListener {
-            if (currentRoom?.s_to != null) {
-                wiseMove("s", currentRoom!!.s_to!!)
-            }
-            else move("s")
+            prepMove("s")
         }
         west.setOnClickListener {
-            if (currentRoom?.w_to != null) {
-                wiseMove("w", currentRoom!!.w_to!!)
-            }
-            else move("w")
+            prepMove("w")
         }
         east.setOnClickListener {
-            if (currentRoom?.e_to != null) {
-                wiseMove("e", currentRoom!!.e_to!!)
-            }
-            else move("e")
+            prepMove("e")
+        }
+        play.setOnClickListener {
+            autoMove.set(!autoMove.get())
+            if(autoMove.get()) {
+                play.text = "Pause"
+                findNextMove()
+            } else play.text = "Play"
         }
 
         mVisible = true
@@ -115,12 +116,40 @@ class FullscreenActivity : AppCompatActivity() {
 
     }
 
+    private fun prepMove(dir: String) {
+        if (dir == "n") {
+            if (currentRoom?.n_to != null) {
+                wiseMove("n", currentRoom!!.n_to!!)
+            } else move("n")
+        }
+        if (dir == "s") {
+            if (currentRoom?.s_to != null) {
+                wiseMove("s", currentRoom!!.s_to!!)
+            } else move("s")
+        }
+        if (dir == "e") {
+            if (currentRoom?.e_to != null) {
+                wiseMove("e", currentRoom!!.e_to!!)
+            } else move("e")
+        }
+        if (dir == "w") {
+            if (currentRoom?.w_to != null) {
+                wiseMove("w", currentRoom!!.w_to!!)
+            } else move("w")
+        }
+    }
+
     private fun wiseMove(dir: String, nextRoomId: Int) {
         compositeDisposable = CompositeDisposable()
         compositeDisposable.add(backendAPI.wiseMove(WiseDirection(dir, nextRoomId.toString()))
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { room: Room -> handleData(room, dir) }
+            .doOnError {
+                (Log.e("wisemove", "wisemove Failed"))
+                println(it)
+                makeTimer(10f)
+            }
+            .subscribe({ room: Room -> handleData(room, dir) }, {})
         )
     }
 
@@ -129,7 +158,12 @@ class FullscreenActivity : AppCompatActivity() {
         compositeDisposable.add(backendAPI.move(Direction(dir))
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { room: Room -> handleData(room, dir) }
+            .doOnError {
+                (Log.e("move", "move Failed"))
+                println(it)
+                makeTimer(10f)
+            }
+            .subscribe({ room: Room -> handleData(room, dir) }, {})
         )
     }
 
@@ -138,12 +172,35 @@ class FullscreenActivity : AppCompatActivity() {
         compositeDisposable.add(backendAPI.rooms
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { room: Room -> handleData(room) }
+            .doOnError {
+                (Log.e("fetchData", "FetchData Failed"))
+                println(it)
+                makeTimer(10f)
+            }
+            .subscribe({ room: Room -> handleData(room) }, {})
+
+        )
+    }
+    private fun takeTreasure(treasure: Treasure) {
+        compositeDisposable = CompositeDisposable()
+        compositeDisposable.add(backendAPI.takeTreasure(treasure)
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .doOnError {
+                (Log.e("fetchData", "FetchData Failed"))
+                println(it)
+                makeTimer(10f)
+            }
+            .subscribe({ room: Room -> handleData(room) }, {})
 
         )
     }
 
+
     private fun handleData(room: Room, direction: String? = null) {
+        if(direction != null) {
+            Toast.makeText(this, "Successfully moved $direction", Toast.LENGTH_SHORT).show()
+        }
 
         if (currentRoom != null) { //currentRoom is the now the room we came from, room is the room we moved to
             if (direction.equals("e")) {
@@ -200,15 +257,116 @@ class FullscreenActivity : AppCompatActivity() {
     private fun displayRoom(room: Room) {
         room_name.text = room.title
         room_desc.text = room.description
-        room_exits.text = room.exits.toString()
+        val terrainText = "Terrain: " + room.terrain
+        terrain.text = terrainText
+        coordinates.text = room.coordinates
 
-        val timer = object : CountDownTimer((room.cooldown * 1000).toLong(), 100) {
+        room_exits.text = ""
+        if (room.exits!!.contains("n")) {
+            room_exits.text = "n "
+            if (room.n_to != null) {
+                val temp = room_exits.text.toString() + "- ${room.n_to} "
+                room_exits.text = temp
+            }
+        }
+        if (room.exits!!.contains("s")) {
+            var temp = room_exits.text.toString() + "s "
+            room_exits.text = temp
+            if (room.s_to != null) {
+                temp = room_exits.text.toString() + "- ${room.s_to} "
+                room_exits.text = temp
+            }
+        }
+        if (room.exits!!.contains("e")) {
+            var temp = room_exits.text.toString() + "e "
+            room_exits.text = temp
+            if (room.e_to != null) {
+                temp = room_exits.text.toString() + "- ${room.e_to} "
+                room_exits.text = temp
+            }
+        }
+        if (room.exits!!.contains("w")) {
+            var temp = room_exits.text.toString() + "w "
+            room_exits.text = temp
+            if (room.w_to != null) {
+                temp = room_exits.text.toString() + "- ${room.w_to}"
+                room_exits.text = temp
+            }
+        }
+        random_procs.removeAllViews()
+
+        for (item in room.items!!) {
+            val textView = TextView(this)
+            textView.text = item
+            random_procs.addView(textView)
+            textView.setOnClickListener {
+                takeTreasure(Treasure(item))
+            }
+        }
+        for (player in room.players!!) {
+            val textView = TextView(this)
+            textView.text = player
+            random_procs.addView(textView)
+        }
+        for (message in room.messages!!) {
+            val textView = TextView(this)
+            textView.text = message
+            random_procs.addView(textView)
+        }
+
+
+        makeTimer(room.cooldown)
+
+
+    }
+
+    private fun findNextMove() {
+        var moveMade = false
+        if (currentRoom!!.items!!.isNotEmpty()) {
+            takeTreasure(Treasure(currentRoom!!.items!![0]))
+            moveMade = true
+        }
+
+        if (!moveMade) {
+            if (currentRoom!!.n_to == null && currentRoom!!.exits!!.contains("n")) {
+                prepMove("n")
+                moveMade = true
+            } else if (currentRoom!!.s_to == null && currentRoom!!.exits!!.contains("s")) {
+                prepMove("s")
+                moveMade = true
+            } else if (currentRoom!!.e_to == null && currentRoom!!.exits!!.contains("e")) {
+                prepMove("e")
+                moveMade = true
+            } else if (currentRoom!!.w_to == null && currentRoom!!.exits!!.contains("w")) {
+                prepMove("w")
+                moveMade = true
+            }
+        }
+
+        if (!moveMade) {
+
+            val randChoice =
+                kotlin.math.abs(ThreadLocalRandom.current().nextInt() % currentRoom!!.exits!!.size)
+            when (randChoice) {
+                0 -> { prepMove(currentRoom!!.exits!![0]) }
+                1 -> { prepMove(currentRoom!!.exits!![1]) }
+                2 -> { prepMove(currentRoom!!.exits!![2]) }
+                3 -> { prepMove(currentRoom!!.exits!![3]) }
+            }
+
+        }
+    }
+
+
+    private fun makeTimer(seconds: Float) {
+        timer = object : CountDownTimer((seconds * 1000).toLong(), 100) {
             override fun onTick(millisUntilFinished: Long) {
                 room_timer.text = (millisUntilFinished / 100).toString()
             }
 
             override fun onFinish() {
                 room_timer.text = "Ready"
+                if (autoMove.get()) findNextMove()
             }
         }
         timer.start()
@@ -220,26 +378,27 @@ class FullscreenActivity : AppCompatActivity() {
         // Trigger the initial hide() shortly after the activity has been
         // created, to briefly hint to the user that UI controls
         // are available.
-        delayedHide(100)
+        //delayedHide(100)
     }
 
     private fun toggle() {
         if (mVisible) {
-            hide()
+            show()
         } else {
             show()
         }
     }
 
     private fun hide() {
-        // Hide UI first
-        supportActionBar?.hide()
-        fullscreen_content_controls.visibility = View.GONE
-        mVisible = false
+        // Show the system bar
+        fullscreen_content.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        mVisible = true
 
-        // Schedule a runnable to remove the status and navigation bar after a delay
-        mHideHandler.removeCallbacks(mShowPart2Runnable)
-        mHideHandler.postDelayed(mHidePart2Runnable, UI_ANIMATION_DELAY.toLong())
+        // Schedule a runnable to display UI elements after a delay
+        mHideHandler.removeCallbacks(mHidePart2Runnable)
+        mHideHandler.postDelayed(mShowPart2Runnable, UI_ANIMATION_DELAY.toLong())
     }
 
     private fun show() {

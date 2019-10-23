@@ -2,6 +2,7 @@ package com.spencerstock.lambdahunt.Retrofit
 
 import com.spencerstock.lambdahunt.Model.Direction
 import com.spencerstock.lambdahunt.Model.Room
+import com.spencerstock.lambdahunt.Model.Treasure
 import com.spencerstock.lambdahunt.Model.WiseDirection
 import io.reactivex.Observable
 import retrofit2.http.Body
@@ -30,5 +31,14 @@ interface BackendAPI {
     )
     @POST("adv/move")
     fun wiseMove(@Body body: WiseDirection): Observable<Room>
+
+    @Headers(
+        "Content-Type: application/json",
+        "Authorization: token 89db1ddef40b9c538dac43796bbce93001a3ee49"
+    )
+    @POST("adv/take")
+    fun takeTreasure(@Body body: Treasure): Observable<Room>
+
+
 
 }

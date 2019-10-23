@@ -16,16 +16,11 @@ data class Room(
     var coordinates : String,
     var elevation : Int,
     var terrain : String,
-    @Ignore
     var players : List<String>?,
-    @Ignore
     var items : List<String>?,
-    @TypeConverters(ListConverter::class)
     var exits : List<String>?,
     var cooldown : Float,
-    @Ignore
     var errors : List<String>?,
-    @Ignore
     var messages : List<String>?,
     var w_to: Int? = null,
     var e_to: Int? = null,
