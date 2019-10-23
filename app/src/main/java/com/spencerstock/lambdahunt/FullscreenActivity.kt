@@ -7,6 +7,7 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.spencerstock.lambdahunt.Model.Direction
 import com.spencerstock.lambdahunt.Model.Room
+import com.spencerstock.lambdahunt.Model.WiseDirection
 import com.spencerstock.lambdahunt.Retrofit.BackendAPI
 import com.spencerstock.lambdahunt.Retrofit.RetrofitClient
 import com.spencerstock.lambdahunt.Room.RoomsDatabase
@@ -77,16 +78,28 @@ class FullscreenActivity : AppCompatActivity() {
         backendAPI = retrofit.create(BackendAPI::class.java)
         fetchData()
         north.setOnClickListener {
-            move("n")
+            if (currentRoom?.n_to != null) {
+                wiseMove("n", currentRoom!!.n_to!!)
+            }
+            else move("n")
         }
         south.setOnClickListener {
-            move("s")
+            if (currentRoom?.s_to != null) {
+                wiseMove("s", currentRoom!!.s_to!!)
+            }
+            else move("s")
         }
         west.setOnClickListener {
-            move("w")
+            if (currentRoom?.w_to != null) {
+                wiseMove("w", currentRoom!!.w_to!!)
+            }
+            else move("w")
         }
         east.setOnClickListener {
-            move("e")
+            if (currentRoom?.e_to != null) {
+                wiseMove("e", currentRoom!!.e_to!!)
+            }
+            else move("e")
         }
 
         mVisible = true
@@ -100,6 +113,15 @@ class FullscreenActivity : AppCompatActivity() {
         north.setOnTouchListener(mDelayHideTouchListener)
 
 
+    }
+
+    private fun wiseMove(dir: String, nextRoomId: Int) {
+        compositeDisposable = CompositeDisposable()
+        compositeDisposable.add(backendAPI.wiseMove(WiseDirection(dir, nextRoomId.toString()))
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe { room: Room -> handleData(room, dir) }
+        )
     }
 
     private fun move(dir: String) {
@@ -180,7 +202,7 @@ class FullscreenActivity : AppCompatActivity() {
         room_desc.text = room.description
         room_exits.text = room.exits.toString()
 
-        val timer = object : CountDownTimer(room.cooldown * 1000.toLong(), 100) {
+        val timer = object : CountDownTimer((room.cooldown * 1000).toLong(), 100) {
             override fun onTick(millisUntilFinished: Long) {
                 room_timer.text = (millisUntilFinished / 100).toString()
             }

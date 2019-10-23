@@ -22,7 +22,7 @@ data class Room(
     var items : List<String>?,
     @TypeConverters(ListConverter::class)
     var exits : List<String>?,
-    var cooldown : Int,
+    var cooldown : Float,
     @Ignore
     var errors : List<String>?,
     @Ignore
@@ -33,7 +33,7 @@ data class Room(
     var n_to: Int? = null
 )
 {
-    constructor(room_id: Int) : this(room_id,"","","",0,"",null,null,null,0,null,null)
+    constructor(room_id: Int) : this(room_id,"","","",0,"",null,null,null,0f,null,null)
 
 
 }
