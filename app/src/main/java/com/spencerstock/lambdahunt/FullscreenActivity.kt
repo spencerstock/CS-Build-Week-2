@@ -14,6 +14,7 @@ import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.activity_fullscreen.*
+import java.lang.Exception
 import java.util.*
 
 /**
@@ -25,7 +26,7 @@ class FullscreenActivity : AppCompatActivity() {
     private lateinit var backendAPI: BackendAPI
     private lateinit var compositeDisposable: CompositeDisposable
     private lateinit var roomsDatabase: RoomsDatabase
-    private lateinit var roomsList: List<Room>
+    private lateinit var roomsList: MutableList<Room>
     private var currentRoom: Room? = null
     private lateinit var timer: Timer
 
@@ -99,7 +100,6 @@ class FullscreenActivity : AppCompatActivity() {
         north.setOnTouchListener(mDelayHideTouchListener)
 
 
-
     }
 
     private fun move(dir: String) {
@@ -107,7 +107,7 @@ class FullscreenActivity : AppCompatActivity() {
         compositeDisposable.add(backendAPI.move(Direction(dir))
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe{room: Room->handleData(room, dir)}
+            .subscribe { room: Room -> handleData(room, dir) }
         )
     }
 
@@ -116,37 +116,63 @@ class FullscreenActivity : AppCompatActivity() {
         compositeDisposable.add(backendAPI.rooms
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe{room: Room->handleData(room)}
+            .subscribe { room: Room -> handleData(room) }
 
         )
     }
 
     private fun handleData(room: Room, direction: String? = null) {
 
-        if (currentRoom != null) {
+        if (currentRoom != null) { //currentRoom is the now the room we came from, room is the room we moved to
             if (direction.equals("e")) {
                 currentRoom!!.e_to = room.room_id
                 room.w_to = currentRoom!!.room_id
-            }
-            else if (direction.equals("w")) {
+            } else if (direction.equals("w")) {
                 currentRoom!!.w_to = room.room_id
                 room.e_to = currentRoom!!.room_id
-            }
-            else if (direction.equals("n")) {
+            } else if (direction.equals("n")) {
                 currentRoom!!.n_to = room.room_id
                 room.s_to = currentRoom!!.room_id
-            }
-            else if (direction.equals("s")) {
+            } else if (direction.equals("s")) {
                 currentRoom!!.s_to = room.room_id
                 room.n_to = currentRoom!!.room_id
             }
-            roomsDatabase.roomsDao().insert(currentRoom!!)
+            insertRoom(updateRoom(currentRoom!!))
         }
 
 
         currentRoom = room
-        roomsDatabase.roomsDao().insert(room)
+        insertRoom(updateRoom(room))
         displayRoom(room)
+    }
+
+    private fun insertRoom(currentRoom: Room) {
+        roomsDatabase.roomsDao().insert(currentRoom)
+        roomsList = roomsDatabase.roomsDao().getAllRooms()
+    }
+
+    private fun updateRoom(currentRoom: Room): Room {
+        try {
+            val dbCopyOfRoom = roomsDatabase.roomsDao().findRoomById(currentRoom.room_id)
+
+            if (currentRoom.w_to == null) {
+                currentRoom.w_to = dbCopyOfRoom.w_to
+            }
+            if (currentRoom.e_to == null) {
+                currentRoom.e_to = dbCopyOfRoom.e_to
+            }
+            if (currentRoom.n_to == null) {
+                currentRoom.n_to = dbCopyOfRoom.n_to
+            }
+            if (currentRoom.s_to == null) {
+                currentRoom.s_to = dbCopyOfRoom.s_to
+            }
+        } catch (e: Exception) {
+            println("Room attempted to update but was not found")
+            println(e)
+        }
+
+        return currentRoom
     }
 
     private fun displayRoom(room: Room) {
@@ -154,10 +180,14 @@ class FullscreenActivity : AppCompatActivity() {
         room_desc.text = room.description
         room_exits.text = room.exits.toString()
 
-        val timer = object: CountDownTimer(room.cooldown*1000.toLong(), 100) {
-            override fun onTick(millisUntilFinished: Long) {room_timer.text = (millisUntilFinished/100).toString()}
+        val timer = object : CountDownTimer(room.cooldown * 1000.toLong(), 100) {
+            override fun onTick(millisUntilFinished: Long) {
+                room_timer.text = (millisUntilFinished / 100).toString()
+            }
 
-            override fun onFinish() {room_timer.text = "Ready"}
+            override fun onFinish() {
+                room_timer.text = "Ready"
+            }
         }
         timer.start()
     }

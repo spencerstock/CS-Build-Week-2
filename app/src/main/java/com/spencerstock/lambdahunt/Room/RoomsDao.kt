@@ -12,5 +12,5 @@ interface RoomsDao {
     @Query("SELECT * FROM rooms " + " WHERE room_id LIKE :id")
     fun findRoomById(id: Int): Room
     @Query("SELECT * FROM rooms")
-    fun getAllRooms(): List<Room>
+    fun getAllRooms(): MutableList<Room>
 }
